@@ -14,6 +14,7 @@ link_directories(${CHECK_LIBRARY_DIRS})
 set(TEST_SOURCES
     test_tichy_strings.c
     test_tichy_sets.c
+    test_tichy_translate.c
 )
 
 

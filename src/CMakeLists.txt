@@ -1,4 +1,5 @@
 set(LIB_SOURCES
+    tichy_minimal_covering.c
     tichy_strings.c
 )
 

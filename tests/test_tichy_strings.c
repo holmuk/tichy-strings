@@ -7,6 +7,7 @@
 int main(void)
 {
     SRunner *sr = srunner_create(tichy_prefix_suite());
+    srunner_add_suite(sr, tichy_translate_suite());
 
     srunner_run_all(sr, CK_NORMAL);
 

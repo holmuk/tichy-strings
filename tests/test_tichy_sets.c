@@ -38,6 +38,13 @@ static const set_test_case set_test_cases[] = {
             {1, 0, 3},
             {2, 3, 3}
         }
+    },
+    {
+        "\xAA\xBB\x00\x00", 4,
+        "\xAA\xBB\x00\x00", 4,
+        1, {
+            {0, 0, 4}
+        }
     }
 };
 
@@ -67,6 +74,31 @@ START_TEST(test_minimal_covering_naive)
 END_TEST
 
 
+/**
+ * Test tichy_minimal_covering_kmp() function
+ */
+START_TEST(test_minimal_covering_kmp)
+{
+    size_t set_size;
+    set_test_case curr_case = set_test_cases[_i];
+    block_move *moves_set = tichy_minimal_covering_kmp(
+                curr_case.source,
+                curr_case.source_size,
+                curr_case.template,
+                curr_case.template_size,
+                &set_size);
+
+    ck_assert_ptr_nonnull(moves_set);
+    ck_assert_uint_eq(set_size, curr_case.expected_block_moves_count);
+    ck_assert_mem_eq(moves_set, curr_case.expected_block_moves,
+                     set_size * sizeof(block_move));
+
+    free(moves_set);
+}
+END_TEST
+
+
+
 Suite *tichy_prefix_suite()
 {
     Suite *s = suite_create("tichy_prefix");
@@ -75,11 +107,12 @@ Suite *tichy_prefix_suite()
     tcase_add_loop_test(tc_naive, test_minimal_covering_naive, 0,
                         sizeof(set_test_cases)/sizeof(set_test_case));
 
-    // TCase *tc_kmp = tcase_create("KMP");
-    // tcase_add_test(tc_kmp, test_minimal_covering_kmp);
+    TCase *tc_kmp = tcase_create("KMP");
+    tcase_add_loop_test(tc_kmp, test_minimal_covering_kmp, 0,
+                        sizeof(set_test_cases)/sizeof(set_test_case));
 
     suite_add_tcase(s, tc_naive);
-    // suite_add_tcase(s, tc_kmp);
+    suite_add_tcase(s, tc_kmp);
 
     return s;
 }
