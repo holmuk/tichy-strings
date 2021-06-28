@@ -37,12 +37,12 @@ typedef struct {
  * @return covering_set Pointer to covering set. The caller is responsible for
  * freeing the allocated memory.
  */
-block_move* tichy_minimal_covering_naive(
-        const char *source,
-        size_t source_size,
-        const char *template,
-        size_t template_size,
-        size_t *resulting_set_size);
+block_move * tichy_minimal_covering_naive(
+    const char *source,
+    size_t source_size,
+    const char *template,
+    size_t template_size,
+    size_t *resulting_set_size);
 
 
 /**
@@ -57,20 +57,20 @@ block_move* tichy_minimal_covering_naive(
  * @return covering_set Pointer to covering set. The caller is responsible for
  * freeing the allocated memory.
  */
-block_move* tichy_minimal_covering_kmp(
-        const char *source,
-        size_t source_size,
-        const char *template,
-        size_t template_size,
-        size_t *resulting_set_size);
+block_move * tichy_minimal_covering_kmp(
+    const char *source,
+    size_t source_size,
+    const char *template,
+    size_t template_size,
+    size_t *resulting_set_size);
 
 
-edit_command* tichy_translate(
-        const char *source,
-        size_t source_size,
-        const char *template,
-        size_t template_size,
-        size_t *resulting_commands_size);
+edit_command * tichy_translate(
+    const char *source,
+    size_t source_size,
+    const char *template,
+    size_t template_size,
+    size_t *resulting_commands_size);
 
 
 void tichy_free_edit_commands(edit_command *commands, size_t length);

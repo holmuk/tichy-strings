@@ -8,16 +8,16 @@
 
 #define INITIAL_SET_SIZE 5
 
-block_move* tichy_minimal_covering_naive(
-        const char *source,
-        size_t source_size,
-        const char *template,
-        size_t template_size,
-        size_t *resulting_set_size)
+block_move * tichy_minimal_covering_naive(
+    const char *source,
+    size_t source_size,
+    const char *template,
+    size_t template_size,
+    size_t *resulting_set_size)
 {
     size_t covering_set_cap = INITIAL_SET_SIZE;
     block_move *covering_set =
-            (block_move*)calloc(1, sizeof(block_move) * covering_set_cap);
+        (block_move *)calloc(1, sizeof(block_move) * covering_set_cap);
     size_t covering_set_size = 0;
 
     const char *source_end = source + source_size;
@@ -33,7 +33,8 @@ block_move* tichy_minimal_covering_naive(
 
             const char *ptr = template_ptr;
             while (ptr != template_end && source_ptr != source_end &&
-                   *source_ptr == *ptr) {
+                   *source_ptr == *ptr)
+            {
                 source_ptr++;
                 ptr++;
             }
@@ -54,9 +55,9 @@ block_move* tichy_minimal_covering_naive(
             covering_set[covering_set_size++] = current_move;
             if (covering_set_size >= covering_set_cap) {
                 covering_set_cap = covering_set_cap * 2;
-                covering_set = (block_move*)realloc(
-                            covering_set,
-                            covering_set_cap * sizeof(block_move));
+                covering_set = (block_move *)realloc(
+                    covering_set,
+                    covering_set_cap * sizeof(block_move));
             }
 
             template_ptr += current_move.length;
@@ -70,16 +71,16 @@ block_move* tichy_minimal_covering_naive(
 }
 
 
-block_move* tichy_minimal_covering_kmp(
-        const char *source,
-        size_t source_size,
-        const char *template,
-        size_t template_size,
-        size_t *resulting_set_size)
+block_move * tichy_minimal_covering_kmp(
+    const char *source,
+    size_t source_size,
+    const char *template,
+    size_t template_size,
+    size_t *resulting_set_size)
 {
     size_t covering_set_cap = INITIAL_SET_SIZE;
     block_move *covering_set =
-            (block_move*)calloc(1, sizeof(block_move) * covering_set_cap);
+        (block_move *)calloc(1, sizeof(block_move) * covering_set_cap);
     size_t covering_set_size = 0;
 
     int *kmp_table = calloc(1, sizeof(int) * template_size);
@@ -110,12 +111,13 @@ block_move* tichy_minimal_covering_kmp(
                 source_match++;
             }
 
-            if (ptr <= template_last || template_last + 1== template_end) {
+            if (ptr <= template_last || template_last + 1 == template_end) {
                 break;
             }
 
             while (kmp_table_comp >= (int)template_offset &&
-                   *template_last != template[kmp_table_comp]) {
+                   *template_last != template[kmp_table_comp])
+            {
                 kmp_table_comp = kmp_table[kmp_table_comp];
             }
 
@@ -148,9 +150,9 @@ block_move* tichy_minimal_covering_kmp(
             covering_set[covering_set_size++] = current_move;
             if (covering_set_size >= covering_set_cap) {
                 covering_set_cap = covering_set_cap * 2;
-                covering_set = (block_move*)realloc(
-                            covering_set,
-                            covering_set_cap * sizeof(block_move));
+                covering_set = (block_move *)realloc(
+                    covering_set,
+                    covering_set_cap * sizeof(block_move));
             }
         }
     }
