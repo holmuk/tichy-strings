@@ -69,7 +69,9 @@ void init_tmp_file_integers()
 
 void free_tmp_name()
 {
-    close(tmp_file_fd);
+    if (tmp_file_fd != -1) {
+        close(tmp_file_fd);
+    }
 }
 
 

@@ -14,7 +14,7 @@ enum vcdiff_window_constants {
 };
 
 
-typedef struct {
+typedef struct vcdiff_window {
     size_t source_segment_size;
     size_t source_segment_pos;
     char *source_segment;

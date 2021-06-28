@@ -18,10 +18,11 @@ set(TEST_SOURCES
     test_tichy_translate.c
 
     test_vcdiff_cache.c
-    test_vcdiff_window.c
     test_vcdiff_code_table.c
+    test_vcdiff_encoder.c
     test_vcdiff_file_allocation.c
     test_vcdiff_io.c
+    test_vcdiff_window.c
 )
 
 

@@ -354,7 +354,7 @@ static vcdiff_code_table_entry
 
 
 // Data structure to search for opcodes.
-typedef struct {
+typedef struct vcdiff_codetable_tree {
     char *first;
     char **second;
     uint16_t **opcodes;

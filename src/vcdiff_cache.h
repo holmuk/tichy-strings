@@ -20,7 +20,7 @@ enum vcdiff_cache_constants {
 };
 
 
-typedef struct {
+typedef struct vcdiff_cache {
     size_t *near;
     size_t near_cache_size;
 
