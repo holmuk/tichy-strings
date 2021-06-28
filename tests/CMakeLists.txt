@@ -1,4 +1,5 @@
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 # If pkg-config is not installed on the system, then the
@@ -15,6 +16,12 @@ set(TEST_SOURCES
     test_tichy_strings.c
     test_tichy_sets.c
     test_tichy_translate.c
+
+    test_vcdiff_cache.c
+    test_vcdiff_window.c
+    test_vcdiff_code_table.c
+    test_vcdiff_file_allocation.c
+    test_vcdiff_io.c
 )
 
 
