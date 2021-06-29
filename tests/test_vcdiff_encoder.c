@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <check.h>
+#include <unistd.h>
 
 #include "vcdiff.h"
 #include "vcdiff_code_table.h"
@@ -37,6 +38,49 @@ static const add_instr_encoding_case encode_add_instr_data[] = {
     {12, "qwertyuiop[]", "\x0D", 1},
     {24, "12345678900987654321qwert", "\x01\x18", 2}
 };
+
+
+/**
+ * Temp source file.
+ */
+char tmp_source_name[] = "/tmp/tempXXXXXX";
+int tmp_source_fd;
+
+
+/**
+ * Temp template file.
+ */
+char tmp_template_name[] = "/tmp/tempXXXXXX";
+int tmp_template_fd;
+
+
+void init_source_template()
+{
+    const char source_str[] = "uvwuvwxy";
+    const char template_str[] = "zuvwxwu";
+
+    tmp_source_fd = mkstemp(tmp_source_name);
+    FILE *source = fopen(tmp_source_name, "wb");
+    fwrite(source_str, strlen(source_str), 1, source);
+    fclose(source);
+
+    tmp_template_fd = mkstemp(tmp_template_name);
+    FILE *template = fopen(tmp_template_name, "wb");
+    fwrite(template_str, strlen(template_str), 1, template);
+    fclose(template);
+}
+
+
+void free_source_template()
+{
+    if (tmp_source_fd != -1) {
+        close(tmp_source_fd);
+    }
+
+    if (tmp_template_fd != -1) {
+        close(tmp_template_fd);
+    }
+}
 
 
 /**
@@ -121,6 +165,38 @@ START_TEST(test_encode_add_instr)
 END_TEST
 
 
+/**
+ * Test for vcdiff_tichy_encode_block()
+ */
+START_TEST(test_vcdiff_encode_block)
+{
+    vcdiff_io_handler *handler = vcdiff_new_io_handler(
+                tmp_template_name,
+                NULL,
+                tmp_source_name,
+                16, 4, 16);
+
+    vcdiff_file *vcdiff = vcdiff_new_file();
+
+    vcdiff_read_input(handler);
+    vcdiff_read_source(handler);
+
+    size_t instructions_size;
+    vcdiff_raw_instr *instructions = vcdiff_tichy_encode_block(
+                handler,
+                vcdiff,
+                &instructions_size);
+
+    ck_assert_ptr_nonnull(instructions);
+    ck_assert_uint_eq(instructions_size, 3);
+
+    vcdiff_free_instruction_stream(instructions, instructions_size);
+    vcdiff_free_file(vcdiff);
+    vcdiff_free_io_handler(handler);
+}
+END_TEST
+
+
 Suite * vcdiff_encoder_suite()
 {
     Suite *s = suite_create("vcdiff_encoder");
@@ -133,7 +209,12 @@ Suite * vcdiff_encoder_suite()
     tcase_add_loop_test(tc_encode_instr, test_encode_add_instr, 0,
                         sizeof(encode_add_instr_data) / sizeof(add_instr_encoding_case));
 
+    TCase *tc_encode_block = tcase_create("Encode a block");
+    tcase_add_unchecked_fixture(tc_encode_block, init_source_template, free_source_template);
+    tcase_add_test(tc_encode_block, test_vcdiff_encode_block);
+
     suite_add_tcase(s, tc_encode_instr);
+    suite_add_tcase(s, tc_encode_block);
 
     return s;
 }
