@@ -7,6 +7,8 @@
 #include "vcdiff_code_table.h"
 #include "vcdiff_encoder.h"
 
+#define INSTR_BUNCH_SIZE 25
+
 
 typedef struct {
     size_t size;
@@ -25,6 +27,19 @@ typedef struct {
 } add_instr_encoding_case;
 
 
+typedef struct {
+    vcdiff_raw_instr stream[INSTR_BUNCH_SIZE];
+    size_t stream_size;
+
+    const char *expected_data_section;
+    size_t expected_data_section_size;
+    const char *expected_instr_section;
+    size_t expected_instr_section_size;
+    const char *expected_addr_section;
+    size_t expected_addr_section_size;
+} instr_encoding_case;
+
+
 static const run_instr_encoding_case encode_run_instr_data[] = {
     {1, 'x', "x", "\x00\x01", 2},
     {20, 'o', "o", "\x00\x14", 2},
@@ -37,6 +52,36 @@ static const add_instr_encoding_case encode_add_instr_data[] = {
     {4, "abcd", "\x05", 1},
     {12, "qwertyuiop[]", "\x0D", 1},
     {24, "12345678900987654321qwert", "\x01\x18", 2}
+};
+
+
+static const instr_encoding_case encode_instr_stream_data[] = {
+    {
+        {
+            {VCDIFF_INSTR_ADD, 0, "H", 1, 0},
+            {VCDIFF_INSTR_ADD, 0, "sP", 2, 0},
+            {VCDIFF_INSTR_ADD, 0, "IMZ", 3, 0},
+            {VCDIFF_INSTR_ADD, 0, "QyeT", 4, 0},
+            {VCDIFF_INSTR_ADD, 0, "rlDew", 5, 0},
+            {VCDIFF_INSTR_ADD, 0, "VtmVIw", 6, 0},
+            {VCDIFF_INSTR_ADD, 0, "DtTgnnK", 7, 0},
+            {VCDIFF_INSTR_ADD, 0, "X[xSpumi", 8, 0},
+            {VCDIFF_INSTR_ADD, 0, "[_EXqWTYZ", 9, 0},
+            {VCDIFF_INSTR_ADD, 0, "QmafIYDXpV", 10, 0},
+            {VCDIFF_INSTR_ADD, 0, "FAMZXS`HHoY", 11, 0},
+            {VCDIFF_INSTR_ADD, 0, "L/ZnlA`fhREF", 12, 0},
+            {VCDIFF_INSTR_ADD, 0, "TI[^lRHXNAB[f", 13, 0},
+            {VCDIFF_INSTR_ADD, 0, "UyHPumTNOAYtDk", 14, 0},
+            {VCDIFF_INSTR_ADD, 0, "JRuTtOhivfUBdwA", 15, 0},
+            {VCDIFF_INSTR_ADD, 0, "noYypqhtWMumFOgL", 16, 0},
+            {VCDIFF_INSTR_ADD, 0, "ZkqBwfyPH[t]gTldq", 17, 0}
+        }, 17,
+        "HsPIMZQyeTrlDewVtmVIwDtTgnnKX[xSpumi[_EXqWTYZQmafIYDXpVFAMZXS`"
+        "HHoYL/ZnlA`fhREFTI[^lRHXNAB[fUyHPumTNOAYtDkJRuTtOhivfUBdwAnoYy"
+        "pqhtWMumFOgLZkqBwfyPH[t]gTldq", 153,
+        "\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11\x12", 17,
+        "", 0
+    }
 };
 
 
@@ -98,6 +143,24 @@ void init_encoding_file()
 void free_encoding_file()
 {
     vcdiff_free_file(encoding_file);
+}
+
+
+/**
+ * Codetable tree.
+ */
+vcdiff_codetable_tree *codetable_tree;
+
+
+void init_codetable_tree()
+{
+    codetable_tree = vcdiff_new_codetable_tree(vcdiff_default_instr_table);
+}
+
+
+void free_codetable_tree()
+{
+    vcdiff_free_codetable_tree(codetable_tree);
 }
 
 
@@ -166,15 +229,52 @@ END_TEST
 
 
 /**
+ * Check the validity of how instruction streams are encoded.
+ */
+START_TEST(test_vcdiff_encode_instr_stream)
+{
+    const instr_encoding_case *test_case = &encode_instr_stream_data[_i];
+    vcdiff_window *window = vcdiff_new_window(128, 128, 128);
+
+    vcdiff_encode_window_instructions(
+        window,
+        codetable_tree,
+        (vcdiff_raw_instr *)test_case->stream,
+        test_case->stream_size);
+
+    ck_assert_uint_eq(window->data_ptr - window->data_section,
+                      test_case->expected_data_section_size);
+    ck_assert_mem_eq(window->data_section,
+                     test_case->expected_data_section,
+                     test_case->expected_data_section_size);
+
+    ck_assert_uint_eq(window->addr_ptr - window->addr_section,
+                      test_case->expected_addr_section_size);
+    ck_assert_mem_eq(window->addr_section,
+                     test_case->expected_addr_section,
+                     test_case->expected_addr_section_size);
+
+    ck_assert_uint_eq(window->instr_ptr - window->instr_section,
+                      test_case->expected_instr_section_size);
+    ck_assert_mem_eq(window->instr_section,
+                     test_case->expected_instr_section,
+                     test_case->expected_instr_section_size);
+
+    vcdiff_free_window(window);
+}
+END_TEST
+
+
+/**
  * Test for vcdiff_tichy_encode_block()
  */
 START_TEST(test_vcdiff_encode_block)
 {
     vcdiff_io_handler *handler = vcdiff_new_io_handler(
-                tmp_template_name,
-                NULL,
-                tmp_source_name,
-                16, 4, 16);
+        tmp_template_name,
+        NULL,
+        tmp_source_name,
+        16, 4, 16);
 
     vcdiff_file *vcdiff = vcdiff_new_file();
 
@@ -183,9 +283,9 @@ START_TEST(test_vcdiff_encode_block)
 
     size_t instructions_size;
     vcdiff_raw_instr *instructions = vcdiff_tichy_encode_block(
-                handler,
-                vcdiff,
-                &instructions_size);
+        handler,
+        vcdiff,
+        &instructions_size);
 
     ck_assert_ptr_nonnull(instructions);
     ck_assert_uint_eq(instructions_size, 3);
@@ -213,8 +313,14 @@ Suite * vcdiff_encoder_suite()
     tcase_add_unchecked_fixture(tc_encode_block, init_source_template, free_source_template);
     tcase_add_test(tc_encode_block, test_vcdiff_encode_block);
 
+    TCase *tc_encode_stream = tcase_create("Encode instructions' stream");
+    tcase_add_checked_fixture(tc_encode_stream, init_codetable_tree, free_codetable_tree);
+    tcase_add_loop_test(tc_encode_stream, test_vcdiff_encode_instr_stream, 0,
+                        sizeof(encode_instr_stream_data) / sizeof(instr_encoding_case));
+
     suite_add_tcase(s, tc_encode_instr);
     suite_add_tcase(s, tc_encode_block);
+    suite_add_tcase(s, tc_encode_stream);
 
     return s;
 }
