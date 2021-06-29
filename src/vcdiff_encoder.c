@@ -13,6 +13,63 @@
 #include "vcdiff_window.h"
 
 
+#define WIN_EXPANSION_COEFF 2
+
+
+/**
+ * Reallocate the window's instructions' section if needed.
+ * @param window Vcdiff window.
+ * @param size Size of data to be written.
+ */
+static void alloc_window_instr_section(vcdiff_window *window, size_t size)
+{
+    if (window->instr_ptr + size >=
+        window->instr_section + window->instr_section_size)
+    {
+        vcdiff_realloc_window(window,
+                              window->data_section_size,
+                              window->instr_section_size * WIN_EXPANSION_COEFF,
+                              window->addr_section_size);
+    }
+}
+
+
+/**
+ * Reallocate the window's data section if needed.
+ * @param window Vcdiff window.
+ * @param size Size of data to be written.
+ */
+static void alloc_window_data_section(vcdiff_window *window, size_t size)
+{
+    if (window->data_ptr + size >=
+        window->data_section + window->data_section_size)
+    {
+        vcdiff_realloc_window(window,
+                              window->data_section_size * WIN_EXPANSION_COEFF,
+                              window->instr_section_size,
+                              window->addr_section_size);
+    }
+}
+
+
+/**
+ * Reallocate the window's addr section if needed.
+ * @param window Vcdiff window.
+ * @param size Size of data to be written.
+ */
+static void alloc_window_addr_section(vcdiff_window *window, size_t size)
+{
+    if (window->addr_ptr + size >=
+        window->addr_section + window->addr_section_size)
+    {
+        vcdiff_realloc_window(window,
+                              window->data_section_size,
+                              window->instr_section_size,
+                              window->addr_section_size * WIN_EXPANSION_COEFF);
+    }
+}
+
+
 void vcdiff_encode_instr_run(
     vcdiff_raw_instr *stream,
     const char byte,
@@ -104,45 +161,22 @@ static void vcdiff_write_instr(
     }
 
     if (buffer[VCDIFF_POSITION_INSTR_SIZE] == 0) { // size = 0 for instr
-        if (window->instr_ptr + instr->size - 1 >= window->instr_section + window->instr_section_size) {
-            vcdiff_realloc_window(window,
-                                  window->data_section_size,
-                                  window->instr_section_size * 2,
-                                  window->addr_section_size);
-        }
-
-        window->instr_ptr += vcdiff_write_integer_buffer(window->instr_ptr, instr->size);
+        alloc_window_instr_section(window, VCDIFF_MAX_INTEGER_SIZE + 1);
+        size_t instr_size = vcdiff_write_integer_buffer(window->instr_ptr, instr->size);
+        window->instr_ptr += instr_size;
     }
 
     if (buffer[VCDIFF_POSITION_INSTR_TYPE] == VCDIFF_INSTR_RUN) {
-        if (window->data_ptr >= window->data_section + window->data_section_size) {
-            vcdiff_realloc_window(window,
-                                  window->data_section_size * 2,
-                                  window->instr_section_size,
-                                  window->addr_section_size);
-        }
-
+        alloc_window_data_section(window, 1);
         *window->data_ptr++ = instr->data[0];
         window->target_len += instr->size;
     } else if (buffer[VCDIFF_POSITION_INSTR_TYPE] == VCDIFF_INSTR_COPY) {
-        if (window->addr_ptr + instr->addr_size - 1 >= window->addr_section + window->addr_section_size) {
-            vcdiff_realloc_window(window,
-                                  window->data_section_size,
-                                  window->instr_section_size,
-                                  window->addr_section_size * 2);
-        }
-
+        alloc_window_addr_section(window, instr->addr_size);
         memcpy(window->addr_ptr, instr->data, instr->addr_size);
         window->addr_ptr += instr->addr_size;
         window->target_len += instr->size;
     } else { // VCDIFF_INSTR_ADD
-        if (window->data_ptr + instr->size - 1 >= window->data_section + window->data_section_size) {
-            vcdiff_realloc_window(window,
-                                  window->data_section_size * 2,
-                                  window->instr_section_size,
-                                  window->addr_section_size);
-        }
-
+        alloc_window_data_section(window, instr->size);
         memcpy(window->data_ptr, instr->data, instr->size);
         window->data_ptr += instr->size;
         window->target_len += instr->size;
@@ -181,25 +215,24 @@ void vcdiff_encode_window_instructions(
             &opcode);
 
         if (opcode == VCDIFF_CODE_TABLE_INVALID_OPCODE) {
-            print_error("Invalid opcode: %hx\n", opcode);
+            print_error("Invalid opcode: %hhx\n", opcode);
             continue;
         }
 
         if (encoded_n != 1) {
             stream++;
         } else {
-            encoded_pair[VCDIFF_POSITION_INSTR_SIZE] = 0;
-            encoded_pair[3 + VCDIFF_POSITION_INSTR_TYPE] = VCDIFF_INSTR_NOOP;
+            (encoded_pair + 3)[VCDIFF_POSITION_INSTR_TYPE] = VCDIFF_INSTR_NOOP;
+            if (opcode == code_table->default_opcodes[(int)encoded_pair[0]]) {
+                encoded_pair[VCDIFF_POSITION_INSTR_SIZE] = 0;
+            }
         }
 
+        alloc_window_instr_section(window, 1);
         *window->instr_ptr++ = (char)opcode;
         vcdiff_write_instr(window, &instr1, encoded_pair);
         vcdiff_write_instr(window, &instr2, encoded_pair + 3);
     }
-
-    window->data_section_size = window->data_ptr - window->data_section;
-    window->instr_section_size = window->instr_ptr - window->instr_section;
-    window->addr_section_size = window->addr_ptr - window->addr_section;
 
     free(encoded_pair);
 }
@@ -301,8 +334,12 @@ void tichy_encode_vcdiff(
             return;
         }
 
-        /// TODO: What about capacity?
         vcdiff_reset_window_pointers(vcdiff->current_window);
+
+        vcdiff_free_cache(vcdiff->cache);
+        vcdiff->cache = vcdiff_new_cache(
+            VCDIFF_CACHE_DEFAULT_NEAR_SIZE,
+            VCDIFF_CACHE_DEFAULT_SAME_SIZE);
 
         vcdiff_free_instruction_stream(instructions, instructions_size);
     }

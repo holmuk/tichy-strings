@@ -20,6 +20,7 @@ vcdiff_window * vcdiff_new_window(
                           addr_section_size);
 
     win->win_indicator = VCDIFF_SOURCE;
+    win->delta_indicator = 0x00;
 
     return win;
 }
@@ -106,16 +107,20 @@ size_t vcdiff_write_window(
     char *header_ptr = delta_header_data;
     size_t size;
 
+    size_t data_section_size = win->data_ptr - win->data_section;
+    size_t instr_section_size = win->instr_ptr - win->instr_section;
+    size_t addr_section_size = win->addr_ptr - win->addr_section;
+
     win->total_delta_size = 0;
-    win->total_delta_size += win->data_section_size;
-    win->total_delta_size += win->instr_section_size;
-    win->total_delta_size += win->addr_section_size;
+    win->total_delta_size += data_section_size;
+    win->total_delta_size += instr_section_size;
+    win->total_delta_size += addr_section_size;
 
     header_ptr += vcdiff_write_integer_buffer(header_ptr, win->target_len);
     *header_ptr++ = win->delta_indicator;
-    header_ptr += vcdiff_write_integer_buffer(header_ptr, win->data_section_size);
-    header_ptr += vcdiff_write_integer_buffer(header_ptr, win->instr_section_size);
-    header_ptr += vcdiff_write_integer_buffer(header_ptr, win->addr_section_size);
+    header_ptr += vcdiff_write_integer_buffer(header_ptr, data_section_size);
+    header_ptr += vcdiff_write_integer_buffer(header_ptr, instr_section_size);
+    header_ptr += vcdiff_write_integer_buffer(header_ptr, addr_section_size);
 
     size_t delta_data_size = header_ptr - delta_header_data;
     win->total_delta_size += delta_data_size;
@@ -136,9 +141,9 @@ size_t vcdiff_write_window(
     size = header_ptr + delta_data_size - header_data;
 
     size = vcdiff_write_bytes(handler, header_data, size);
-    size += vcdiff_write_bytes(handler, win->data_section, win->data_section_size);
-    size += vcdiff_write_bytes(handler, win->instr_section, win->instr_section_size);
-    size += vcdiff_write_bytes(handler, win->addr_section, win->addr_section_size);
+    size += vcdiff_write_bytes(handler, win->data_section, data_section_size);
+    size += vcdiff_write_bytes(handler, win->instr_section, instr_section_size);
+    size += vcdiff_write_bytes(handler, win->addr_section, addr_section_size);
 
     free(header_data);
     free(delta_header_data);
@@ -159,27 +164,31 @@ void vcdiff_dump_window(vcdiff_window *win)
            win->delta_indicator &VCDIFF_ADDRCOMP ? "VCDIFF_ADDRCOMP" :
            win->delta_indicator &VCDIFF_INSTCOMP ? "VCDIFF_INSTCOMP" : "UNKNOWN");
 
+    size_t data_section_size = win->data_ptr - win->data_section;
+    size_t instr_section_size = win->instr_ptr - win->instr_section;
+    size_t addr_section_size = win->addr_ptr - win->addr_section;
+
     printf("Target length: %zu\n", win->target_len);
-    printf("Data section size: %zu\n", win->data_section_size);
-    printf("Instructions section size: %zu\n", win->instr_section_size);
-    printf("Address section size: %zu\n", win->addr_section_size);
+    printf("Data section size: %zu\n", data_section_size);
+    printf("Instructions section size: %zu\n", instr_section_size);
+    printf("Address section size: %zu\n", addr_section_size);
     printf("Source segment size %zu\n", win->source_segment_size);
     printf("Source segment position: %zu\n", win->source_segment_pos);
 
     printf("Data: ");
-    for (size_t i = 0; i < win->data_section_size; i++) {
+    for (size_t i = 0; i < data_section_size; i++) {
         printf("%02hhX ", win->data_section[i]);
     }
     printf("\n");
 
     printf("Instr: ");
-    for (size_t i = 0; i < win->instr_section_size; i++) {
+    for (size_t i = 0; i < instr_section_size; i++) {
         printf("%02hhX ", win->instr_section[i]);
     }
     printf("\n");
 
     printf("Addr: ");
-    for (size_t i = 0; i < win->addr_section_size; i++) {
+    for (size_t i = 0; i < addr_section_size; i++) {
         printf("%02hhX ", win->addr_section[i]);
     }
     printf("\n");
