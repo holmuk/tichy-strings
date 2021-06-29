@@ -212,12 +212,12 @@ void vcdiff_free_instruction_stream(
     const size_t size)
 {
     for (size_t i = 0; i < size; i++) {
-        if (stream->data != NULL) {
-            free(stream->data);
+        if (stream[i].data != NULL) {
+            free(stream[i].data);
         }
     }
 
-    free(stream);
+   free(stream);
 }
 
 

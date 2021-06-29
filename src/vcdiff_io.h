@@ -8,9 +8,9 @@
 #include "error_handling.h"
 
 
-#define VCDIFF_IO_DEFAULT_MAX_SOURCE_FILE_SIZE    2 * 1024 * 1024 * 1024 // 2GiB
-#define VCDIFF_IO_DEFAULT_OUTPUT_BUFFER_SIZE      1024 * 1024            // 1MiB
-#define VCDIFF_IO_DEFAULT_INPUT_BUFFER_SIZE       1024 * 1024            // 1MiB
+#define VCDIFF_IO_DEFAULT_SOURCE_BUFFER_SIZE      1024 * 1024 // 1MiB
+#define VCDIFF_IO_DEFAULT_OUTPUT_BUFFER_SIZE      1024 * 1024 // 1MiB
+#define VCDIFF_IO_DEFAULT_INPUT_BUFFER_SIZE       1024 * 1024 // 1MiB
 
 
 typedef struct {
@@ -137,6 +137,13 @@ size_t vcdiff_write_bytes(
     vcdiff_io_handler *handler,
     const char * const bytes,
     size_t bytes_len);
+
+
+/**
+ * Write file header.
+ * @param handler IO handler.
+ */
+size_t vcdiff_write_file_header(vcdiff_io_handler *handler);
 
 
 #endif // VCDIFF_IO

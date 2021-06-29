@@ -34,15 +34,13 @@ enum vcdiff_constants {
 };
 
 
-typedef struct _vcdiff_file {
+typedef struct vcdiff_file {
     char version;
 
     struct vcdiff_cache *cache;
     struct vcdiff_window *current_window;
 
     struct vcdiff_codetable_tree *code_tree;
-
-    int use_default_code_table;
 } vcdiff_file;
 
 

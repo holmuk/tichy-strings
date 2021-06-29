@@ -14,6 +14,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 # Subdirectories
 add_subdirectory(src)
 add_subdirectory(tests)
+add_subdirectory(tichydiff)
 
 # Check unit-tests
 enable_testing()

@@ -41,6 +41,7 @@ void vcdiff_encode_window_instructions(
 
 vcdiff_raw_instr * vcdiff_tichy_encode_block(
     vcdiff_io_handler *handler,
-    vcdiff_file *vcdiff);
+    vcdiff_file *vcdiff,
+    size_t *instructions_size);
 
 #endif // VCDIFF_ENCODER_H

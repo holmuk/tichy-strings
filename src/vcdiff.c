@@ -25,8 +25,6 @@ vcdiff_file * vcdiff_new_file()
 
     file->code_tree = vcdiff_new_codetable_tree(vcdiff_default_instr_table);
 
-    file->use_default_code_table = true;
-
     return file;
 }
 

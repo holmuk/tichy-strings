@@ -75,4 +75,14 @@ edit_command * tichy_translate(
 
 void tichy_free_edit_commands(edit_command *commands, size_t length);
 
+
+void tichy_encode_vcdiff(
+    const char *source_filename,
+    const char *template_filename,
+    const char *output_filename,
+    size_t source_buffer_size,
+    size_t template_buffer_size,
+    size_t output_buffer_size);
+
+
 #endif // TICHY_STRINGS_H

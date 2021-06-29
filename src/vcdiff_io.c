@@ -261,6 +261,18 @@ vcdiff_io_handler * vcdiff_new_io_handler(
     handler->output_file_name = output_file_name;
     handler->source_file_name = source_file_name;
 
+    if (input_buffer_size == 0) {
+        input_buffer_size = VCDIFF_IO_DEFAULT_INPUT_BUFFER_SIZE;
+    }
+
+    if (source_buffer_size == 0) {
+        source_buffer_size = VCDIFF_IO_DEFAULT_SOURCE_BUFFER_SIZE;
+    }
+
+    if (output_buffer_size == 0) {
+        output_buffer_size = VCDIFF_IO_DEFAULT_OUTPUT_BUFFER_SIZE;
+    }
+
     // Instantinate buffers' sizes
     handler->input_buffer_size = input_buffer_size;
     handler->output_buffer_size = output_buffer_size;
@@ -349,7 +361,7 @@ size_t vcdiff_write_integer_buffer(
     }
     buffer_ptr++;
 
-    size_t size = (char)(buffer_int + VCDIFF_MAX_INTEGER_SIZE + 1 - buffer_ptr);
+    size_t size = buffer_int + VCDIFF_MAX_INTEGER_SIZE + 1 - buffer_ptr;
     memcpy(buffer, buffer_ptr, size);
     free(buffer_int);
 
@@ -458,4 +470,15 @@ size_t vcdiff_file_size(FILE *file)
     }
 
     return file_size;
+}
+
+
+size_t vcdiff_write_file_header(vcdiff_io_handler *handler)
+{
+    size_t bytes_written = vcdiff_write_bytes(handler, VCDIFF_HEADER, 4);
+
+    char hdr_indicator = 0x00;
+    bytes_written += vcdiff_write_byte(handler, hdr_indicator);
+
+    return bytes_written;
 }

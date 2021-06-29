@@ -69,16 +69,20 @@ void vcdiff_realloc_window(
 {
     assert(win != NULL);
 
+    size_t data_offset = win->data_ptr - win->data_section;
     win->data_section = (char *)realloc_with_check(win->data_section, data_size);
     win->data_section_size = data_size;
+    win->data_ptr = win->data_section + data_offset;
 
+    data_offset = win->instr_ptr - win->instr_section;
     win->instr_section = (char *)realloc_with_check(win->instr_section, instr_size);
     win->instr_section_size = instr_size;
+    win->instr_ptr = win->instr_section + data_offset;
 
+    data_offset = win->addr_ptr - win->addr_section;
     win->addr_section = (char *)realloc_with_check(win->addr_section, addr_size);
     win->addr_section_size = addr_size;
-
-    vcdiff_reset_window_pointers(win);
+    win->addr_ptr = win->addr_section + data_offset;
 }
 
 
@@ -130,6 +134,7 @@ size_t vcdiff_write_window(
     memcpy(header_ptr, delta_header_data, delta_data_size);
 
     size = header_ptr + delta_data_size - header_data;
+
     size = vcdiff_write_bytes(handler, header_data, size);
     size += vcdiff_write_bytes(handler, win->data_section, win->data_section_size);
     size += vcdiff_write_bytes(handler, win->instr_section, win->instr_section_size);
