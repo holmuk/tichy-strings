@@ -7,27 +7,18 @@
 
 typedef struct {
     size_t addr_raw;
-    size_t here;
     size_t expected_addr;
     size_t expected_mode;
 } encode_addr_test_entry;
 
 
-static const encode_addr_test_entry encode_addr_empty_cache_test_data[4] = {
-    { 0x0000FFFF, 0x10000000, 0x0000FFFF, 0 },
-    { 0x10000000, 0x10000010, 0x00000010, 1 },
-    { 0x00002000, 0x10000000, 0x00002000, 0 },
-    { 0x00100200, 0x00100300, 0x00000100, 1 }
-};
-
-
 static const encode_addr_test_entry encode_addr_default_cache_test_data[6] = {
-    { 0x0000FFFF, 0x10000000, 0x0000FFFF, 0 },
-    { 0x10000000, 0x10000010, 0x00000010, 1 },
-    { 0x10000001, 0x10000020, 0x00000001, 3 },
-    { 0x00010002, 0x10000340, 0x00000003, 2 },
-    { 0x0000FFFF, 0x10000453, 0x000000FF, 6 },
-    { 0x00010002, 0x10000554, 0x00000002, 7 }
+    { 0x0000FFFF, 0x0000FFFF, 0 },
+    { 0x10000000, 0x0FFF0001, 2 },
+    { 0x10000001, 0x00000001, 4 },
+    { 0x00010002, 0x00010002, 0 },
+    { 0x0000FFFF, 0x000000FF, 6 },
+    { 0x00010002, 0x00000002, 7 }
 };
 
 
@@ -145,34 +136,6 @@ END_TEST
 
 
 /**
- * Address encoding test for zero-sized cache.
- */
-START_TEST(test_vcdiff_cache_encode_addr_zero)
-{
-    size_t mode;
-    size_t test_size = sizeof(encode_addr_empty_cache_test_data) /
-                       sizeof(encode_addr_test_entry);
-
-    for (size_t i = 0; i < test_size; ++i) {
-        size_t addr_raw = encode_addr_empty_cache_test_data[i].addr_raw;
-        size_t addr = vcdiff_cache_encode_addr(
-            empty_cache,
-            addr_raw,
-            encode_addr_empty_cache_test_data[i].here,
-            &mode);
-
-        vcdiff_cache_update(empty_cache, addr_raw);
-
-        ck_assert_uint_eq(
-            mode, encode_addr_empty_cache_test_data[i].expected_mode);
-        ck_assert_uint_eq(
-            addr, encode_addr_empty_cache_test_data[i].expected_addr);
-    }
-}
-END_TEST
-
-
-/**
  * Address encoding test for default-sized cache.
  */
 START_TEST(test_vcdiff_cache_encode_addr_default)
@@ -186,7 +149,6 @@ START_TEST(test_vcdiff_cache_encode_addr_default)
         size_t addr = vcdiff_cache_encode_addr(
             default_cache,
             addr_raw,
-            encode_addr_default_cache_test_data[i].here,
             &mode);
 
         vcdiff_cache_update(default_cache, addr_raw);
@@ -210,12 +172,6 @@ Suite * vcdiff_cache_suite()
     tcase_add_test(tc_memory, test_vcdiff_cache_alloc_nonzero);
     tcase_add_test(tc_memory, test_vcdiff_cache_realloc);
 
-    TCase *tc_encode_empty = tcase_create("Encoding (zero-sized cache)");
-
-    tcase_add_unchecked_fixture(
-        tc_encode_empty, init_empty_cache, free_empty_cache);
-    tcase_add_test(tc_encode_empty, test_vcdiff_cache_encode_addr_zero);
-
     TCase *tc_encode_default = tcase_create("Encoding (default-sized cache)");
 
     tcase_add_unchecked_fixture(
@@ -223,7 +179,6 @@ Suite * vcdiff_cache_suite()
     tcase_add_test(tc_encode_default, test_vcdiff_cache_encode_addr_default);
 
     suite_add_tcase(s, tc_memory);
-    suite_add_tcase(s, tc_encode_empty);
     suite_add_tcase(s, tc_encode_default);
 
     return s;

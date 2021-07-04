@@ -67,26 +67,15 @@ void vcdiff_realloc_cache(
 void vcdiff_cache_update(vcdiff_cache *cache, size_t addr);
 
 
-/**
- * Get copy instruction mode.
- * @param cache Cache object.
- * @param mode Copy instruction mode.
- * @return Copy instruction mode.
- */
-int vcdiff_get_copy_instruction_mode(vcdiff_cache *cache, size_t mode);
-
-
 /** Encode cache addr according to the algorithm described in the RFC.
  * @param cache Cache object.
  * @param addr_raw Raw address.
- * @param here Here address.
  * @param[out] copy_mode Calculated copy mode.
  * @return Calculated address.
  */
 size_t vcdiff_cache_encode_addr(
     vcdiff_cache *cache,
     size_t addr_raw,
-    size_t here,
     size_t *copy_mode);
 
 
