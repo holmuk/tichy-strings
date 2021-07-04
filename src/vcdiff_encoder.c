@@ -70,7 +70,13 @@ static void alloc_window_addr_section(vcdiff_window *window, size_t size)
 }
 
 
-void vcdiff_encode_instr_run(
+/**
+ * Encode the RUN instruction.
+ * @param stream Current instruction.
+ * @param byte The byte to repeat.
+ * @param size Size of the current RUN instruction.
+ */
+static void vcdiff_encode_instr_run(
     vcdiff_raw_instr *stream,
     const char byte,
     const size_t size)
@@ -85,7 +91,13 @@ void vcdiff_encode_instr_run(
 }
 
 
-void vcdiff_encode_instr_add(
+/**
+ * Encode the ADD instruction.
+ * @param stream Current instruction.
+ * @param size Size of the instruction.
+ * @param data Data to add.
+ */
+static void vcdiff_encode_instr_add(
     vcdiff_raw_instr *stream,
     const size_t size,
     const char *data)
@@ -106,7 +118,14 @@ void vcdiff_encode_instr_add(
 }
 
 
-void vcdiff_encode_instr_copy(
+/**
+ * Encode the COPY instruction.
+ * @param stream Current instruction.
+ * @param file Current Vcdiff file.
+ * @param addr COPY instruction address.
+ * @param size COPY instruction size.
+ */
+static void vcdiff_encode_instr_copy(
     vcdiff_raw_instr *stream,
     vcdiff_file *file,
     size_t addr,
@@ -117,11 +136,8 @@ void vcdiff_encode_instr_copy(
 
     stream->instr_type = VCDIFF_INSTR_COPY;
 
-    size_t here = file->current_window->here;
     size_t mode;
-
-    size_t encoded_addr = vcdiff_cache_encode_addr(file->cache, addr, here,
-                                                   &mode);
+    size_t encoded_addr = vcdiff_cache_encode_addr(file->cache, addr, &mode);
 
     stream->mode = (char)mode;
 
@@ -129,14 +145,25 @@ void vcdiff_encode_instr_copy(
         free(stream->data);
     }
 
-    stream->data = malloc(VCDIFF_MAX_INTEGER_SIZE + 1);
-    stream->addr_size = vcdiff_write_integer_buffer(stream->data, encoded_addr);
-    stream->size = size;
+    // SAME mode, just write a byte
+    if (mode >= file->cache->near_cache_size + 2) {
+        stream->data = malloc(1);
+        stream->data[0] = (unsigned char)encoded_addr;
+        stream->addr_size = 1;
+    } else {
+        stream->data = malloc(VCDIFF_MAX_INTEGER_SIZE + 1);
+        stream->addr_size = vcdiff_write_integer_buffer(stream->data, encoded_addr);
+    }
 
-    file->current_window->here += size;
+    stream->size = size;
 }
 
 
+/**
+ * Encode the instruction as a 3-bytes array (instr - size - mode).
+ * @param instr Current instruction.
+ * @param buffer Buffer to write data to.
+ */
 static void vcdiff_encode_raw_instr(
     const vcdiff_raw_instr *instr,
     char *buffer)
@@ -151,6 +178,13 @@ static void vcdiff_encode_raw_instr(
 }
 
 
+/**
+ * Write the instruction to the window.
+ * @param window Current window.
+ * @param instr Current instruction.
+ * @param buffer Buffer with encoded instruction
+ * (see vcdiff_encode_raw_instr() )
+ */
 static void vcdiff_write_instr(
     vcdiff_window *window,
     const vcdiff_raw_instr *instr,
@@ -166,23 +200,21 @@ static void vcdiff_write_instr(
         window->instr_ptr += instr_size;
     }
 
-    if (buffer[VCDIFF_POSITION_INSTR_TYPE] == VCDIFF_INSTR_RUN) {
-        alloc_window_data_section(window, 1);
-        *window->data_ptr++ = instr->data[0];
-        window->target_len += instr->size;
-    } else if (buffer[VCDIFF_POSITION_INSTR_TYPE] == VCDIFF_INSTR_COPY) {
+    if (buffer[VCDIFF_POSITION_INSTR_TYPE] == VCDIFF_INSTR_COPY) {
         alloc_window_addr_section(window, instr->addr_size);
         memcpy(window->addr_ptr, instr->data, instr->addr_size);
         window->addr_ptr += instr->addr_size;
-        window->target_len += instr->size;
-    } else { // VCDIFF_INSTR_ADD
+    } else if (buffer[VCDIFF_POSITION_INSTR_TYPE] == VCDIFF_INSTR_ADD) {
         alloc_window_data_section(window, instr->size);
         memcpy(window->data_ptr, instr->data, instr->size);
         window->data_ptr += instr->size;
-        window->target_len += instr->size;
+    } else {  /* VCDIFF_INSTR_RUN */
+        alloc_window_data_section(window, 1);
+        *window->data_ptr++ = instr->data[0];
     }
-}
 
+    window->target_len += instr->size;
+}
 
 void vcdiff_encode_window_instructions(
     vcdiff_window *window,
@@ -192,18 +224,28 @@ void vcdiff_encode_window_instructions(
 {
     vcdiff_raw_instr *stream_end = stream + stream_size;
 
-    vcdiff_raw_instr instr1, instr2;
+    vcdiff_raw_instr *instr1;
+    vcdiff_raw_instr *instr2;
 
     char *encoded_pair = calloc(1, VCDIFF_CODE_INSTR_PAIR_SIZE);
     uint16_t opcode;
     window->target_len = 0;
 
+    bool encoded_two = true;
+
     while (stream < stream_end) {
-        instr1 = *stream++;
-        vcdiff_encode_raw_instr(&instr1, encoded_pair);
+        if (!encoded_two) {
+            // Use old instruction.
+            instr1 = instr2;
+        } else {
+            instr1 = stream;
+        }
+
+        stream++;
+        vcdiff_encode_raw_instr(instr1, encoded_pair);
         if (stream != stream_end) {
-            instr2 = *stream;
-            vcdiff_encode_raw_instr(&instr2, encoded_pair + 3);
+            instr2 = stream;
+            vcdiff_encode_raw_instr(instr2, encoded_pair + 3);
         } else {
             memset(encoded_pair + 3, 0, 3);
         }
@@ -215,23 +257,23 @@ void vcdiff_encode_window_instructions(
             &opcode);
 
         if (opcode == VCDIFF_CODE_TABLE_INVALID_OPCODE) {
-            print_error("Invalid opcode: %hhx\n", opcode);
+            print_error("Invalid opcode: %hx\n", opcode);
             continue;
         }
 
-        if (encoded_n != 1) {
-            stream++;
-        } else {
+        encoded_two = (encoded_n == 2);
+        if (!encoded_two) {
             (encoded_pair + 3)[VCDIFF_POSITION_INSTR_TYPE] = VCDIFF_INSTR_NOOP;
-            if (opcode == code_table->default_opcodes[(int)encoded_pair[0]]) {
+            if (encoded_n == 0) {
                 encoded_pair[VCDIFF_POSITION_INSTR_SIZE] = 0;
             }
         }
 
         alloc_window_instr_section(window, 1);
         *window->instr_ptr++ = (char)opcode;
-        vcdiff_write_instr(window, &instr1, encoded_pair);
-        vcdiff_write_instr(window, &instr2, encoded_pair + 3);
+
+        vcdiff_write_instr(window, instr1, encoded_pair);
+        vcdiff_write_instr(window, instr2, encoded_pair + 3);
     }
 
     free(encoded_pair);
@@ -349,4 +391,7 @@ void tichy_encode_vcdiff(
         print_error("Unexpected error during IO operations.");
         return;
     }
+
+    vcdiff_free_io_handler(io_handler);
+    vcdiff_free_file(vcdiff);
 }

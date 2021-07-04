@@ -13,25 +13,13 @@
 #include "vcdiff_code_table.h"
 
 
-void vcdiff_encode_instr_run(
-    vcdiff_raw_instr *stream,
-    const char byte,
-    const size_t size);
-
-
-void vcdiff_encode_instr_add(
-    vcdiff_raw_instr *stream,
-    const size_t size,
-    const char *data);
-
-
-void vcdiff_encode_instr_copy(
-    vcdiff_raw_instr *stream,
-    vcdiff_file *file,
-    size_t addr,
-    size_t size);
-
-
+/**
+ * Encode instructions in the current window.
+ * @param window Current window.
+ * @param code_table Codetable tree.
+ * @param stream Instructions stream.
+ * @param stream_size Stream size.
+ */
 void vcdiff_encode_window_instructions(
     vcdiff_window *window,
     vcdiff_codetable_tree *code_table,
@@ -39,6 +27,13 @@ void vcdiff_encode_window_instructions(
     size_t stream_size);
 
 
+/**
+ * Encode the current block using the Tichy's algorithm.
+ * @param handler IO handler.
+ * @param vcdiff VCDIFF file handler.
+ * @param[out] instructions_size Resulted array size.
+ * @return Array of Vcdiff instructions that encode the current block.
+ */
 vcdiff_raw_instr * vcdiff_tichy_encode_block(
     vcdiff_io_handler *handler,
     vcdiff_file *vcdiff,

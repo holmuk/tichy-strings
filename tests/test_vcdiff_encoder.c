@@ -11,23 +11,6 @@
 
 
 typedef struct {
-    size_t size;
-    char byte;
-    const char *expected_data;
-    const char *expected_instr;
-    size_t expected_instr_size;
-} run_instr_encoding_case;
-
-
-typedef struct {
-    size_t size;
-    const char *data;
-    const char *expected_instr;
-    size_t expected_instr_size;
-} add_instr_encoding_case;
-
-
-typedef struct {
     vcdiff_raw_instr stream[INSTR_BUNCH_SIZE];
     size_t stream_size;
 
@@ -38,21 +21,6 @@ typedef struct {
     const char *expected_addr_section;
     size_t expected_addr_section_size;
 } instr_encoding_case;
-
-
-static const run_instr_encoding_case encode_run_instr_data[] = {
-    {1, 'x', "x", "\x00\x01", 2},
-    {20, 'o', "o", "\x00\x14", 2},
-    {1000, 'p', "p", "\x00\x87\x68", 3}
-};
-
-
-static const add_instr_encoding_case encode_add_instr_data[] = {
-    {1, "x", "\x02", 1},
-    {4, "abcd", "\x05", 1},
-    {12, "qwertyuiop[]", "\x0D", 1},
-    {24, "12345678900987654321qwert", "\x01\x18", 2}
-};
 
 
 static const instr_encoding_case encode_instr_stream_data[] = {
@@ -165,70 +133,6 @@ void free_codetable_tree()
 
 
 /**
- * Check how RUN instructions are encoded.
- */
-START_TEST(test_encode_run_instr)
-{
-    vcdiff_raw_instr *instr = vcdiff_new_instruction_stream(1);
-    run_instr_encoding_case c = encode_run_instr_data[_i];
-
-    vcdiff_encode_instr_run(instr, c.byte, c.size);
-
-    ck_assert_uint_eq(instr->size, c.size);
-    ck_assert_uint_eq(instr->data[0], c.byte);
-    ck_assert_int_eq(instr->instr_type, VCDIFF_INSTR_RUN);
-
-    vcdiff_encode_window_instructions(encoding_file->current_window,
-                                      encoding_file->code_tree,
-                                      instr,
-                                      1);
-
-    ck_assert_mem_eq(encoding_file->current_window->data_section,
-                     c.expected_data,
-                     strlen(c.expected_data));
-
-    ck_assert_mem_eq(encoding_file->current_window->instr_section,
-                     c.expected_instr,
-                     c.expected_instr_size);
-
-    vcdiff_free_instruction_stream(instr, 1);
-}
-END_TEST
-
-
-/**
- * Check how ADD instructions are encoded.
- */
-START_TEST(test_encode_add_instr)
-{
-    vcdiff_raw_instr *instr = vcdiff_new_instruction_stream(1);
-    add_instr_encoding_case c = encode_add_instr_data[_i];
-
-    vcdiff_encode_instr_add(instr, c.size, c.data);
-
-    ck_assert_uint_eq(instr->size, c.size);
-    ck_assert_mem_eq(instr->data, c.data, c.size);
-    ck_assert_int_eq(instr->instr_type, VCDIFF_INSTR_ADD);
-
-    vcdiff_encode_window_instructions(encoding_file->current_window,
-                                      encoding_file->code_tree,
-                                      instr,
-                                      1);
-
-    ck_assert_mem_eq(encoding_file->current_window->data_section,
-                     c.data,
-                     c.size);
-
-    ck_assert_mem_eq(encoding_file->current_window->instr_section,
-                     c.expected_instr,
-                     c.expected_instr_size);
-
-    vcdiff_free_instruction_stream(instr, 1);
-}
-END_TEST
-
-
-/**
  * Check the validity of how instruction streams are encoded.
  */
 START_TEST(test_vcdiff_encode_instr_stream)
@@ -302,12 +206,7 @@ Suite * vcdiff_encoder_suite()
     Suite *s = suite_create("vcdiff_encoder");
 
     TCase *tc_encode_instr = tcase_create("Encode an instruction");
-
     tcase_add_checked_fixture(tc_encode_instr, init_encoding_file, free_encoding_file);
-    tcase_add_loop_test(tc_encode_instr, test_encode_run_instr, 0,
-                        sizeof(encode_run_instr_data) / sizeof(run_instr_encoding_case));
-    tcase_add_loop_test(tc_encode_instr, test_encode_add_instr, 0,
-                        sizeof(encode_add_instr_data) / sizeof(add_instr_encoding_case));
 
     TCase *tc_encode_block = tcase_create("Encode a block");
     tcase_add_unchecked_fixture(tc_encode_block, init_source_template, free_source_template);
