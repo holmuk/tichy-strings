@@ -9,28 +9,13 @@
 #include "vcdiff_io.h"
 
 
-size_t vcdiff_find_instruction_pair(
-    const vcdiff_code_table_entry * const code_table,
-    char *encoded_pair)
-{
-    const char *code_table_data = (const char *)code_table;
-
-    size_t index = 0;
-    while (index < VCDIFF_CODE_TABLE_SIZE) {
-        if (memcmp(encoded_pair, code_table_data,
-                   VCDIFF_CODE_INSTR_PAIR_SIZE) == 0)
-        {
-            break;
-        }
-
-        code_table_data += VCDIFF_CODE_INSTR_PAIR_SIZE;
-        index++;
-    }
-
-    return index;
-}
-
-
+/**
+ * Search for encoded instruction in @p data.
+ * @param data Array of encoded instructions.
+ * @param size Size of the array in bytes.
+ * @param instr Encoded 3-byte instruction.
+ * @return Index of the instruction of @p size if not found.
+ */
 static size_t search_for_instruction(
     const char *data,
     size_t size,
@@ -52,15 +37,20 @@ static size_t search_for_instruction(
 }
 
 
-
+/**
+ * Search for "default" instructions (RUN 0 0, ADD 0 0, COPY 0 x)
+ * @param tree Codetable tree.
+ */
 static void vcdiff_find_default_instructions(vcdiff_codetable_tree *tree)
 {
     char *instr = (char *)calloc(1, VCDIFF_CODE_INSTR_SIZE);
 
+    // RUN 0 0, ADD 0 0, and COPY 0 0
+    size_t index_first;
     for (size_t i = 0; i < VCDIFF_INSTR_INVALID; i++) {
-        instr[0] = i;
+        instr[VCDIFF_POSITION_INSTR_TYPE] = i;
 
-        size_t index_first = search_for_instruction(
+        index_first = search_for_instruction(
             tree->first,
             tree->first_size,
             instr);
@@ -72,6 +62,31 @@ static void vcdiff_find_default_instructions(vcdiff_codetable_tree *tree)
                 tree->second_size[index_first]];
         }
     }
+
+    // COPY 0 x, where x >= 0.
+    instr[VCDIFF_POSITION_INSTR_TYPE] = VCDIFF_INSTR_COPY;
+    int curr_size = 10;
+    tree->default_copy_instr = malloc(curr_size * sizeof(uint16_t));
+    instr[VCDIFF_POSITION_INSTR_MODE] = 0;
+
+    while ((index_first = search_for_instruction(
+                tree->first, tree->first_size, instr)
+            ) != tree->first_size)
+    {
+        int copy_mode = instr[VCDIFF_POSITION_INSTR_MODE];
+        tree->default_copy_instr[copy_mode] = tree->opcodes[index_first][
+            tree->second_size[index_first]];
+
+        if (copy_mode + 1 == curr_size) {
+            curr_size *= 2;
+            tree->default_copy_instr = realloc(tree->default_copy_instr,
+                                               curr_size);
+        }
+
+        instr[VCDIFF_POSITION_INSTR_MODE]++;
+    }
+
+    tree->max_mode = instr[VCDIFF_POSITION_INSTR_MODE] - 1;
 
     free(instr);
 }
@@ -158,6 +173,7 @@ void vcdiff_free_codetable_tree(vcdiff_codetable_tree *tree)
     free(tree->second);
     free(tree->opcodes);
     free(tree->second_size);
+    free(tree->default_copy_instr);
 
     free(tree);
 }
@@ -175,8 +191,16 @@ uint16_t vcdiff_find_instruction(
         encoded_first);
 
     if (index_first == tree->first_size) {
-        *opcode = tree->default_opcodes[(int)encoded_first[0]];
-        return 1;
+        if (encoded_first[VCDIFF_POSITION_INSTR_TYPE] == VCDIFF_INSTR_COPY &&
+            encoded_first[VCDIFF_POSITION_INSTR_MODE] <= tree->max_mode)
+        {
+            *opcode = tree->default_copy_instr[
+                (int)encoded_first[VCDIFF_POSITION_INSTR_MODE]];
+        } else {
+            *opcode = tree->default_opcodes[
+                (int)encoded_first[VCDIFF_POSITION_INSTR_TYPE]];
+        }
+        return 0;
     }
 
     size_t index_second = search_for_instruction(
@@ -217,7 +241,7 @@ void vcdiff_free_instruction_stream(
         }
     }
 
-   free(stream);
+    free(stream);
 }
 
 

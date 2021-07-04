@@ -354,14 +354,17 @@ static vcdiff_code_table_entry
 
 
 // Data structure to search for opcodes.
+/// TODO: Add docs.
 typedef struct vcdiff_codetable_tree {
     char *first;
     char **second;
     uint16_t **opcodes;
     uint16_t default_opcodes[4];
+    uint16_t *default_copy_instr;
 
     size_t *second_size;
     size_t first_size;
+    char max_mode;
 } vcdiff_codetable_tree;
 
 
@@ -375,18 +378,18 @@ vcdiff_codetable_tree * vcdiff_new_codetable_tree(vcdiff_code_table_entry *code_
 
 /**
  * Free the codetable tree.
- * @param codetable_tree
+ * @param codetable_tree Codetable tree.
  */
 void vcdiff_free_codetable_tree(vcdiff_codetable_tree *tree);
 
 
 /**
  * Search for the instruction pair in the tree.
- * @param tree
- * @param[in, out] encoded_first
- * @param[in, out] encoded_second
+ * @param tree Codetable tree.
+ * @param encoded_first First instruction encoded as three bytes.
+ * @param encoded_second Second instruction encoded as three bytes.
  * @param[out] opcode Resulted opcode.
- * @return Number of found instructions.
+ * @return Number of found instructions, 0 if default instructions are used.
  */
 uint16_t vcdiff_find_instruction(
     vcdiff_codetable_tree *tree,
@@ -397,7 +400,7 @@ uint16_t vcdiff_find_instruction(
 
 /**
  * Allocate memory for new instruction stream.
- * @param size
+ * @param size Size of the stream.
  * @return New instruction stream.
  */
 vcdiff_raw_instr * vcdiff_new_instruction_stream(const size_t size);
@@ -405,8 +408,8 @@ vcdiff_raw_instr * vcdiff_new_instruction_stream(const size_t size);
 
 /**
  * Free instruction stream memory.
- * @param table
- * @param size
+ * @param stream Instruction stream.
+ * @param size Stream size.
  */
 void vcdiff_free_instruction_stream(
     vcdiff_raw_instr *stream,
