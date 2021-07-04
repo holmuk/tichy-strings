@@ -1,5 +1,6 @@
 #include "tichy_strings.h"
 
+#include <assert.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -32,6 +33,69 @@ static void place_command_move(
 }
 
 
+/**
+ * Copy block of commands of size @p size.
+ * @param dst Destination.
+ * @param src Source.
+ * @param size Size of the block.
+ */
+static void copy_commands(
+        edit_command *dst,
+        const edit_command *src,
+        size_t size)
+{
+    const edit_command *src_ptr = src;
+    edit_command *dst_ptr = dst;
+
+    while (src_ptr != src + size) {
+        dst_ptr->type = src_ptr->type;
+        dst_ptr->length = src_ptr->length;
+
+        if (src_ptr->type == EDIT_COMMAND_ADD) {
+            dst_ptr->add_str = malloc(src_ptr->length);
+            memcpy(dst_ptr->add_str, src_ptr->add_str, src_ptr->length);
+        } else {
+            dst_ptr->move_pos = src_ptr->move_pos;
+        }
+
+        src_ptr++;
+        dst_ptr++;
+    }
+}
+
+
+/**
+ * Allocate additional memory for command stream if necessary.
+ * @param commands Stream of commands that should be reallocated.
+ * @param[in, out] commands_cap Command stream capacity.
+ * @param current_command Current command pointer.
+ * @return New current command pointer.
+ */
+static edit_command * alloc_commands(
+        edit_command **commands,
+        size_t *commands_cap,
+        edit_command *current_command)
+{
+    assert(current_command >= *commands);
+
+    ptrdiff_t offset = current_command - *commands;
+
+    if ((size_t)offset >= *commands_cap) {
+        size_t old_cap = *commands_cap;
+        *commands_cap *= 2;
+        edit_command *new_commands = calloc(1, *commands_cap * sizeof(edit_command));
+        copy_commands(new_commands, *commands, old_cap);
+
+        tichy_free_edit_commands(*commands, old_cap);
+
+        *commands = new_commands;
+        current_command = *commands + offset;
+    }
+
+    return current_command;
+}
+
+
 edit_command * tichy_translate(
     const char *source,
     size_t source_size,
@@ -40,13 +104,17 @@ edit_command * tichy_translate(
     size_t *resulting_commands_size)
 {
     size_t minimal_covering_size;
-    block_move *minimal_covering = tichy_minimal_covering_kmp(
+    block_move *minimal_covering = tichy_minimal_covering_naive(
         source, source_size,
         template, template_size,
         &minimal_covering_size);
 
+    if (minimal_covering == NULL) {
+        return NULL;
+    }
+
     size_t commands_cap = INITIAL_CAP;
-    edit_command *commands = malloc(sizeof(edit_command) * commands_cap);
+    edit_command *commands = calloc(1, commands_cap * sizeof(edit_command));
     edit_command *current_command = commands;
 
     size_t template_index = 0;
@@ -61,6 +129,11 @@ edit_command * tichy_translate(
             place_command_add(current_command++,
                               template + template_index,
                               current_move_t - template_index);
+
+            current_command = alloc_commands(&commands,
+                                             &commands_cap,
+                                             current_command);
+
             template_index = current_move_t;
         }
 
@@ -77,23 +150,25 @@ edit_command * tichy_translate(
             place_command_move(current_command++,
                                length,
                                current_move->source_pos + template_index - current_move_t);
+
             template_index += length;
         }
 
-        if (current_command >= commands + commands_cap) {
-            ptrdiff_t offset = current_command - commands;
-            commands_cap *= 2;
-            commands = realloc(commands, commands_cap);
-            current_command = commands + offset;
-        }
+        current_command = alloc_commands(&commands,
+                                         &commands_cap,
+                                         current_command);
 
         current_move++;
     }
 
-    if (template_index + 1 < template_size) {
+    if (template_index < template_size) {
         place_command_add(current_command++,
                           template + template_index,
                           template_size - template_index);
+
+        current_command = alloc_commands(&commands,
+                                         &commands_cap,
+                                         current_command);
     }
 
     free(minimal_covering);
